@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import Chart from 'chart.js/auto';
 import { Line } from 'react-chartjs-2';
 
 const LandingPage = () => {
+    const [chartData, setChartData] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [searchResults, setSearchResults] = useState([]);
     const [showSearch, setShowSearch] = useState(false);
-    const [chartData, setChartData] = useState({});
 
     useEffect(() => {
         // Fetch the initial data for the chart
@@ -17,20 +16,27 @@ const LandingPage = () => {
     const fetchChartData = async () => {
         try {
             const response = await axios.get('/api/card-values');
-            setChartData({
-                labels: response.data.labels,
-                datasets: [
-                    {
-                        label: 'Card Value Over Time',
-                        data: response.data.values,
-                        fill: false,
-                        backgroundColor: 'rgba(75,192,192,0.4)',
-                        borderColor: 'rgba(75,192,192,1)',
-                    },
-                ],
-            });
+            // Make sure the data structure is correct
+            if (response.data && response.data.labels && response.data.values) {
+                setChartData({
+                    labels: response.data.labels,
+                    datasets: [
+                        {
+                            label: 'Card Value Over Time',
+                            data: response.data.values,
+                            fill: false,
+                            backgroundColor: 'rgba(75,192,192,0.4)',
+                            borderColor: 'rgba(75,192,192,1)',
+                        },
+                    ],
+                });
+            } else {
+                // Handle case where response data is not in expected format
+                setChartData(null);  // Or set some default empty data structure
+            }
         } catch (error) {
             console.error('Error fetching chart data', error);
+            setChartData(null);  // Handle errors by setting chart data to null
         }
     };
 
@@ -64,7 +70,11 @@ const LandingPage = () => {
 
             {!showSearch ? (
                 <div>
-                    <Line data={chartData} />
+                    {chartData ? (
+                        <Line data={chartData} />
+                    ) : (
+                        <p>Loading chart data...</p>
+                    )}
                 </div>
             ) : (
                 <div>

@@ -1,32 +1,37 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
-
-// Utility function to get CSRF token from cookies
-const getCSRFToken = () => {
-    const name = 'csrf_token=';
-    const decodedCookie = decodeURIComponent(document.cookie);
-    const cookies = decodedCookie.split(';');
-    for (let i = 0; i < cookies.length; i++) {
-        let cookie = cookies[i].trim();
-        if (cookie.startsWith(name)) {
-            return cookie.substring(name.length, cookie.length);
-        }
-    }
-    return null;
-};
 
 const Login = () => {
     const [email, setEmail] = useState(''); 
     const [password, setPassword] = useState('');
-    const history = useNavigate();
+    const [csrfToken, setCsrfToken] = useState(null);
+    const navigate = useNavigate();
+
+    // Fetch CSRF token when the component mounts
+    useEffect(() => {
+        const fetchCsrfToken = async () => {
+            try {
+                const response = await axios.get('http://127.0.0.1:5000/api/auth/csrf-token', { withCredentials: true });
+                console.log('Response from CSRF token fetch:', response);
+                setCsrfToken(response.data.csrf_token);
+                console.log('Fetched CSRF Token:', response.data.csrf_token);
+            } catch (error) {
+                console.error('Error fetching CSRF token:', error);
+            }
+        };
+        fetchCsrfToken();
+    }, []);
+    
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        
-        const csrfToken = getCSRFToken();
-        console.log('Retrieved CSRF Token:', csrfToken);
-
+    
+        if (!csrfToken) {
+            alert('CSRF Token is missing. Please refresh the page or try again later.');
+            return;
+        }
+    
         try {
             const response = await axios.post('http://127.0.0.1:5000/api/auth/login', {
                 email,
@@ -38,21 +43,24 @@ const Login = () => {
                 },
                 withCredentials: true
             });
-
-            if (response.data.success) {
+    
+            console.log('Login response:', response);
+    
+            if (response.data && response.data.success) {
                 document.body.classList.add('fade-out');
                 setTimeout(() => {
-                    history.push('/');
+                    navigate('/landing');
                     document.body.classList.remove('fade-out');
                 }, 500);
             } else {
-                alert(response.data.message);
+                alert(response.data.message || 'Login failed.');
             }
         } catch (error) {
             console.error('Error logging in:', error);
+            alert(error.response?.data?.error || 'An error occurred during login.');
         }
     };
-
+    
     return (
         <div className="min-h-screen bg-gray-100 flex flex-col justify-center items-center">
             <div className="bg-white p-8 rounded shadow-md w-full max-w-md animate-slide-in">

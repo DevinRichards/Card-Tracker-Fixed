@@ -3,9 +3,10 @@ from models.users import User, db
 from forms.login_form import LoginForm
 from forms.register_form import RegisterForm
 from flask_login import current_user, login_user, logout_user, login_required
-from flask_wtf.csrf import validate_csrf
+from flask_wtf.csrf import CSRFProtect, generate_csrf, validate_csrf
 
 auth_routes = Blueprint('auth', __name__)
+
 
 @auth_routes.route('/login', methods=['POST', 'OPTIONS'])
 def login():
@@ -39,16 +40,31 @@ def login():
 
     # Validate form and login user
     if form.validate_on_submit():
-        print("Form validated successfully")
         user = User.query.filter(User.email == form.data['email']).first()
         if user:
             login_user(user)
-            print(f"User {user.email} logged in successfully")
-            return jsonify(user.to_dict())
-        print("Invalid credentials")
-        return jsonify({"error": "Invalid credentials"}), 401
-    print(f"Form validation errors: {form.errors}")
-    return form.errors, 401
+            return jsonify({
+                "success": True, 
+                "message": "Login successful", 
+                "email": user.email,
+                "id": user.id,
+                "username": user.username
+            })
+        return jsonify({"success": False, "message": "Invalid credentials"}), 401
+    
+    return jsonify({"success": False, "message": "Form validation failed"}), 401
+
+@auth_routes.route('/csrf-token', methods=['GET'])
+def get_csrf_token():
+    """
+    Provides a CSRF token to the client.
+    """
+    csrf_token = generate_csrf()
+    print("Generated CSRF token:", csrf_token)
+    response = jsonify({"csrf_token": csrf_token})
+    response.set_cookie('csrf_token', csrf_token, samesite='Strict', secure=True)
+    return response
+
 
 @auth_routes.route('/logout')
 def logout():
