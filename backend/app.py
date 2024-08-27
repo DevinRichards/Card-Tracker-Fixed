@@ -1,22 +1,21 @@
 import os
-from flask import Flask, request, redirect
+from flask import Flask, request, redirect, send_from_directory, render_template
 from flask_cors import CORS
 from flask_migrate import Migrate
-from flask_wtf.csrf import CSRFProtect, generate_csrf
+from flask_wtf.csrf import generate_csrf
 from flask_login import LoginManager
 from models.db import db
 from models.users import User
 from api.user_routes import user_routes
 from api.auth_routes import auth_routes
-from config import Config
 from seeds import seed_commands
+from config import Config
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='../frontend', static_url_path='/')
 
 # Setup login manager
 login = LoginManager(app)
 login.login_view = 'auth.login'
-
 
 @login.user_loader
 def load_user(id):
@@ -25,14 +24,14 @@ def load_user(id):
 app.cli.add_command(seed_commands)
 
 app.config.from_object(Config)
+app.register_blueprint(user_routes, url_prefix='/api/users')
+app.register_blueprint(auth_routes, url_prefix='/api/auth')
+
 db.init_app(app)
 Migrate(app, db)
 
-CORS(app)
-csrf = CSRFProtect(app)
-
-app.register_blueprint(user_routes, url_prefix='/api/users')
-app.register_blueprint(auth_routes, url_prefix='/api/auth')
+# General CORS setup for all routes
+CORS(app, supports_credentials=True, resources={r"/api/*": {"origins": "http://127.0.0.1:5173"}})
 
 # Redirect HTTP to HTTPS in production
 @app.before_request
@@ -50,7 +49,7 @@ def inject_csrf_token(response):
         generate_csrf(),
         secure=True if os.environ.get('FLASK_ENV') == 'production' else False,
         samesite='Strict' if os.environ.get('FLASK_ENV') == 'production' else None,
-        httponly=True
+        httponly=True  # Set to True for security
     )
     return response
 
@@ -66,11 +65,14 @@ def api_help():
     }
     return route_list
 
+# Serve static files for the frontend
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def react_root(path):
+    if path == '' or path == 'index.html':
+        return app.send_static_file('index.html')
     if path == 'favicon.ico':
-        return app.send_from_directory('public', 'favicon.ico')
+        return send_from_directory('public', 'favicon.ico')
     return app.send_static_file('index.html')
 
 @app.errorhandler(404)

@@ -2,6 +2,20 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
 
+// Utility function to get CSRF token from cookies
+const getCSRFToken = () => {
+    const name = 'csrf_token=';
+    const decodedCookie = decodeURIComponent(document.cookie);
+    const cookies = decodedCookie.split(';');
+    for (let i = 0; i < cookies.length; i++) {
+        let cookie = cookies[i].trim();
+        if (cookie.startsWith(name)) {
+            return cookie.substring(name.length, cookie.length);
+        }
+    }
+    return null;
+};
+
 const Login = () => {
     const [email, setEmail] = useState(''); 
     const [password, setPassword] = useState('');
@@ -9,11 +23,22 @@ const Login = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        
+        const csrfToken = getCSRFToken();
+        console.log('Retrieved CSRF Token:', csrfToken);
+
         try {
-            const response = await axios.post('/auth/login', {
-                email, 
+            const response = await axios.post('http://127.0.0.1:5000/api/auth/login', {
+                email,
                 password
+            }, {
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                    'Content-Type': 'application/json'
+                },
+                withCredentials: true
             });
+
             if (response.data.success) {
                 document.body.classList.add('fade-out');
                 setTimeout(() => {
@@ -34,9 +59,9 @@ const Login = () => {
                 <h2 className="text-2xl font-bold mb-6 text-center text-indigo-600 animate-fade-in">Login</h2>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                        <label className="block text-gray-700">Email</label> {/* Updated label */}
+                        <label className="block text-gray-700">Email</label>
                         <input
-                            type="email"  // Updated input type to email
+                            type="email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-400"
